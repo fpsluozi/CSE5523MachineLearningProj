@@ -1,4 +1,5 @@
 import re
+import csv
 
 #start process_tweet
 def processTweet(tweet):
@@ -17,15 +18,23 @@ def processTweet(tweet):
     #trim
     tweet = tweet.strip('\'"')
     return tweet
-#end
 
-#Read the tweets one by one and process it
-fp = open('sample.txt', 'r')
-line = fp.readline()
+results = []
 
-while line:
-    processedTweet = processTweet(line)
-    print processedTweet
-    line = fp.readline()
-#end loop
+with open('Sentiment.csv', 'rb') as f:
+    reader = csv.reader(f)
+    for row in reader:
+        processedTweet = processTweet(row[15])
+        results.append(processedTweet)
+
+f.close()
+
+tmp = []
+
+with open('result.csv', 'wb') as fp:
+    writer = csv.writer(fp)
+    for i in range(len(results)):
+        writer.writerow([results[i]])
+
 fp.close()
+
