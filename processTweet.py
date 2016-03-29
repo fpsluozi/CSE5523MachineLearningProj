@@ -18,23 +18,3 @@ def processTweet(tweet):
     #trim
     tweet = tweet.strip('\'"')
     return tweet
-
-results = []
-
-with open('Sentiment.csv', 'rb') as f:
-    reader = csv.reader(f)
-    for row in reader:
-        processedTweet = processTweet(row[15])
-        results.append(processedTweet)
-
-f.close()
-
-tmp = []
-
-with open('result.csv', 'wb') as fp:
-    writer = csv.writer(fp)
-    for i in range(len(results)):
-        writer.writerow([results[i]])
-
-fp.close()
-
