@@ -31,7 +31,7 @@ def getStopWordList(stopWordListFileName):
 #end
 
 #start getfeatureVector
-def getFeatureVector(tweet):
+def getFeatureVectorAndWordlist(tweet,wordList):
     featureVector = []
     #split tweet into words
     words = tweet.split()
@@ -47,7 +47,11 @@ def getFeatureVector(tweet):
             continue
         else:
             featureVector.append(w.lower())
-    return featureVector
+            if w not in wordList:
+                wordList.append(w.lower())
+            
+
+    return featureVector, wordList
 #end
 
 def getCategory(attribute):
@@ -61,7 +65,19 @@ def getCategory(attribute):
         # raise ValueError('Attribute is wrong')
         raise ValueError('Attribute is wrong')
 
+def dataMatrix(tweet, wordList):
+    data = [0 for i in range(len(wordList))]
+    # words = tweet.split()
+    for w in tweet:
+        data[wordList.index(w)] += 1
+
+    # print data
+    return data
+
 results = []
+wordList = []
+dataM = []
+cataM = []
 
 with open('dataset/Sentiment.csv', 'rb') as f:
     reader = csv.reader(f)
@@ -73,14 +89,26 @@ with open('dataset/Sentiment.csv', 'rb') as f:
             first = False
             continue
         processedTweet = processTweet(row[15])
-        featureVector = getFeatureVector(processedTweet)
-        results.append(getCategory(row[5]) + featureVector)
+        # featureVector = getFeatureVector(processedTweet)
+        featureVector, wordList = getFeatureVectorAndWordlist(processedTweet, wordList)
+        # results.append(getCategory(row[5]) + featureVector)
+        results.append(featureVector)
+        cataM.append(getCategory(row[5]))
+        # print dataM
+
+    wordList = sorted(wordList)
+
+    for i in range(len(results)):
+        dataM.append(dataMatrix(results[i], wordList) + cataM[i])
+        # print dataMatrix(results[i], wordList) + cataM[i]
+        # results.append(getCategory(row[5]) + featureVector)
 
 f.close()
 
-with open('featureVector.csv', 'wb') as fp:
+with open('featureMatrix.csv', 'wb') as fp:
     writer = csv.writer(fp)
-    for i in range(1,len(results)):
-        writer.writerow(results[i])
+    writer.writerow(sorted(wordList))
+    for row in dataM:
+        writer.writerow(row)
 
 fp.close()
