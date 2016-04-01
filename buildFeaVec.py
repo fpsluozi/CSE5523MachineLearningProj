@@ -30,12 +30,32 @@ def getStopWordList(stopWordListFileName):
     return stopWords
 #end
 
+#negation is to add "neg at the end of the word"
+def negation(tweet):
+    neg = ""
+
+    # pay attention to "n't"
+    pattern = re.compile(r"(.*(never|no|nothing|nowhere|noone|none|not|havent|hasnt|hadnt|cant|couldnt|shouldnt|wont|wouldnt|dont|doesnt|didnt|isnt|arent|n't|aint))([^.:;!?]*)([.:;!?])(.*)")
+    m = re.search(pattern, tweet)
+    if m:
+        for w in m.group(3).split():
+           neg += w + "neg "
+            
+        return m.group(1) + neg + m.group(4) + " " + m.group(5)
+    else:
+        return tweet
+
 #start getfeatureVector
 def getFeatureVectorAndWordlist(tweet,wordList):
     featureVector = []
+
+    # negation the tweet
+    tweet = negation(tweet)
+
     #split tweet into words
     words = tweet.split()
     for w in words:
+        w = w.lower() 
         #replace two or more with two occurrences
         w = replaceTwoOrMore(w)
         #strip punctuation
@@ -46,9 +66,12 @@ def getFeatureVectorAndWordlist(tweet,wordList):
         if(w in stopWords or val is None):
             continue
         else:
-            featureVector.append(w.lower())
+            # featureVector.append(w.lower())
+            # if w not in wordList:
+            #     wordList.append(w.lower())
+            featureVector.append(w)
             if w not in wordList:
-                wordList.append(w.lower())
+                wordList.append(w)
             
 
     return featureVector, wordList
@@ -79,7 +102,7 @@ wordList = []
 dataM = []
 cataM = []
 
-with open('dataset/Sentiment.csv', 'rb') as f:
+with open('dataset/test.csv', 'rb') as f:
     reader = csv.reader(f)
     first = True
     st = open('stopWords.txt', 'r')
