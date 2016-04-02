@@ -2,6 +2,8 @@ from processTweet import processTweet
 
 import re
 import csv
+import nltk
+from nltk.stem import WordNetLemmatizer
 
 #initialize stopWords
 stopWords = []
@@ -30,49 +32,87 @@ def getStopWordList(stopWordListFileName):
     return stopWords
 #end
 
-#negation is to add "neg at the end of the word"
+# negation is to add "neg at the end of the word"
 def negation(tweet):
-    neg = ""
+    neg = " "
 
     # pay attention to "n't"
     pattern = re.compile(r"(.*(never|no|nothing|nowhere|noone|none|not|havent|hasnt|hadnt|cant|couldnt|shouldnt|wont|wouldnt|dont|doesnt|didnt|isnt|arent|n't|aint))([^.:;!?]*)([.:;!?])(.*)")
     m = re.search(pattern, tweet)
     if m:
         for w in m.group(3).split():
-           neg += w + "neg "
-            
-        return m.group(1) + neg + m.group(4) + " " + m.group(5)
+           neg += w + "neg "  
+
+        tweet = m.group(1) + neg + m.group(4) + " " + m.group(5)
+   
+    return tweet.split()
+
+# stemming according to WordNet
+def stemWordNet(word):
+    wnl = WordNetLemmatizer()
+    tag = nltk.pos_tag(nltk.word_tokenize(word))
+    
+    if len(tag[0][1])>= 2 and (tag[0][1])[0:2] == 'VB':
+        return wnl.lemmatize(word, 'v')
+        
     else:
-        return tweet
+        return wnl.lemmatize(word)
+
+# preprocess
+def preProcess(words):
+    
+    tmp = []
+    for w in words:
+        # w = w.lower() 
+        #replace two or more with two occurrences
+        w = replaceTwoOrMore(w)
+        #strip punctuation
+        # w = w.strip('\'"?,.')
+        #check if the word stats with an alphabet
+        val = re.search(r"^[a-zA-Z][a-zA-Z0-9]*", w)
+        #ignore if it is a stop word
+        if(w in stopWords or val is None):
+            continue
+        else:
+            tmp.append(w)
+        
+    return tmp
+
+def stripPun(words):
+    tmp = []
+    for w in words:
+        w = w.strip('\'"?,./')
+        tmp.append(w)
+        
+    return tmp
 
 #start getfeatureVector
 def getFeatureVectorAndWordlist(tweet,wordList):
     featureVector = []
 
-    # negation the tweet
-    tweet = negation(tweet)
-
     #split tweet into words
-    words = tweet.split()
+    words = (tweet.lower()).split()
+    # print words
+
+    # preprocess
+    words = preProcess(words)
+    # print words
+
+    # stem the word w
+    words = [stemWordNet(w) for w in words]
+    # print words
+
+    # negation the tweet
+    words = negation(" ".join(words))
+    
+    # strip punctuations
+    words = stripPun(words)
+    # print words
+
     for w in words:
-        w = w.lower() 
-        #replace two or more with two occurrences
-        w = replaceTwoOrMore(w)
-        #strip punctuation
-        w = w.strip('\'"?,.')
-        #check if the word stats with an alphabet
-        val = re.search(r"^[a-zA-Z][a-zA-Z0-9]*$", w)
-        #ignore if it is a stop word
-        if(w in stopWords or val is None):
-            continue
-        else:
-            # featureVector.append(w.lower())
-            # if w not in wordList:
-            #     wordList.append(w.lower())
-            featureVector.append(w)
-            if w not in wordList:
-                wordList.append(w)
-            
+        featureVector.append(w)
+        if w not in wordList:
+            wordList.append(w) 
 
     return featureVector, wordList
 #end
@@ -86,6 +126,7 @@ def getCategory(attribute):
         return ["0","0","1"]
     else:
         # raise ValueError('Attribute is wrong')
+        print attribute
         raise ValueError('Attribute is wrong')
 
 def dataMatrix(tweet, wordList):
@@ -114,17 +155,15 @@ with open('dataset/test.csv', 'rb') as f:
         processedTweet = processTweet(row[15])
         # featureVector = getFeatureVector(processedTweet)
         featureVector, wordList = getFeatureVectorAndWordlist(processedTweet, wordList)
-        # results.append(getCategory(row[5]) + featureVector)
+        # print featureVector, '\n'
+
         results.append(featureVector)
         cataM.append(getCategory(row[5]))
-        # print dataM
 
     wordList = sorted(wordList)
 
     for i in range(len(results)):
         dataM.append(dataMatrix(results[i], wordList) + cataM[i])
-        # print dataMatrix(results[i], wordList) + cataM[i]
-        # results.append(getCategory(row[5]) + featureVector)
 
 f.close()
 
