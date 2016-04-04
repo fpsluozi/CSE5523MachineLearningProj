@@ -36,22 +36,29 @@ def getStopWordList(stopWordListFileName):
 def negation(tweet):
     neg = " "
 
-    # pay attention to "n't"
+    # find the substring betweetn Negation word and Clause-level punctuation 
     pattern = re.compile(r"(.*(never|no|nothing|nowhere|noone|none|not|havent|hasnt|hadnt|cant|couldnt|shouldnt|wont|wouldnt|dont|doesnt|didnt|isnt|arent|n't|aint))([^.:;!?]*)([.:;!?])(.*)")
     m = re.search(pattern, tweet)
     if m:
+
+        # add "neg " at the end of a word
         for w in m.group(3).split():
            neg += w + "neg "  
 
+        # restore tweets
         tweet = m.group(1) + neg + m.group(4) + " " + m.group(5)
    
     return tweet.split()
+# end
 
 # stemming according to WordNet
 def stemWordNet(word):
     wnl = WordNetLemmatizer()
+
+    # obtain the word class
     tag = nltk.pos_tag(nltk.word_tokenize(word))
     
+    # word class for verb can be different, but the first two letters must be "VB"
     if len(tag[0][1])>= 2 and (tag[0][1])[0:2] == 'VB':
         return wnl.lemmatize(word, 'v')
         
@@ -63,13 +70,13 @@ def preProcess(words):
     
     tmp = []
     for w in words:
-        # w = w.lower() 
+        
         #replace two or more with two occurrences
         w = replaceTwoOrMore(w)
-        #strip punctuation
-        # w = w.strip('\'"?,.')
+
         #check if the word stats with an alphabet
         val = re.search(r"^[a-zA-Z][a-zA-Z0-9]*", w)
+
         #ignore if it is a stop word
         if(w in stopWords or val is None):
             continue
@@ -81,6 +88,8 @@ def preProcess(words):
 def stripPun(words):
     tmp = []
     for w in words:
+
+        # strip symbols in a word
         w = w.strip('\'"?,./')
         tmp.append(w)
         
@@ -104,7 +113,7 @@ def getFeatureVectorAndWordlist(tweet,wordList):
 
     # negation the tweet
     words = negation(" ".join(words))
-    
+
     # strip punctuations
     words = stripPun(words)
     # print words
@@ -152,21 +161,27 @@ with open('dataset/test.csv', 'rb') as f:
         if first:
             first = False
             continue
+
+        # the 16th column is about tweet
         processedTweet = processTweet(row[15])
         # featureVector = getFeatureVector(processedTweet)
         featureVector, wordList = getFeatureVectorAndWordlist(processedTweet, wordList)
-        # print featureVector, '\n'
 
+        # reccord feature vector for each tweet
         results.append(featureVector)
+
+        # recoord category for each vector
         cataM.append(getCategory(row[5]))
 
     wordList = sorted(wordList)
 
     for i in range(len(results)):
+        # combine feature vector and category together
         dataM.append(dataMatrix(results[i], wordList) + cataM[i])
 
 f.close()
 
+# write feature matrix to the file
 with open('featureMatrix.csv', 'wb') as fp:
     writer = csv.writer(fp)
     writer.writerow(sorted(wordList))
