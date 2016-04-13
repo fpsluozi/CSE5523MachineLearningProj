@@ -1,191 +1,91 @@
-from processTweet import processTweet
 
 import re
 import csv
-import nltk
-from nltk.stem import WordNetLemmatizer
 
-#initialize stopWords
-stopWords = []
+from preprocess import Preprocess 
 
-#start replaceTwoOrMore
-def replaceTwoOrMore(s):
-    #look for 2 or more repetitions of character and replace with the character itself
-    pattern = re.compile(r"(.)\1{1,}", re.DOTALL)
-    return pattern.sub(r"\1\1", s)
-#end
+class BuildFeaVec(object):
+    """docstring for BuildFeaVec"""
+    def __init__(self):
+        pass
 
-#start getStopWordList
-def getStopWordList(stopWordListFileName):
-    #read the stopwords file and build a list
-    stopWords = []
-    stopWords.append('AT_USER')
-    stopWords.append('URL')
 
-    fp = open("stopWords.txt", 'r')
-    line = fp.readline()
-    while line:
-        word = line.strip()
-        stopWords.append(word)
-        line = fp.readline()
-    fp.close()
-    return stopWords
-#end
-
-# negation is to add "neg at the end of the word"
-def negation(tweet):
-    neg = " "
-
-    # find the substring betweetn Negation word and Clause-level punctuation 
-    pattern = re.compile(r"(.*(never|no|nothing|nowhere|noone|none|not|havent|hasnt|hadnt|cant|couldnt|shouldnt|wont|wouldnt|dont|doesnt|didnt|isnt|arent|n't|aint))([^.:;!?]*)([.:;!?])(.*)")
-    m = re.search(pattern, tweet)
-    if m:
-
-        # add "neg " at the end of a word
-        for w in m.group(3).split():
-           neg += w + "neg "  
-
-        # restore tweets
-        tweet = m.group(1) + neg + m.group(4) + " " + m.group(5)
-   
-    return tweet.split()
-# end
-
-# stemming according to WordNet
-def stemWordNet(word):
-    wnl = WordNetLemmatizer()
-
-    # obtain the word class
-    tag = nltk.pos_tag(nltk.word_tokenize(word))
-    
-    # word class for verb can be different, but the first two letters must be "VB"
-    if len(tag[0][1])>= 2 and (tag[0][1])[0:2] == 'VB':
-        return wnl.lemmatize(word, 'v')
-        
-    else:
-        return wnl.lemmatize(word)
-
-# preprocess
-def preProcess(words):
-    
-    tmp = []
-    for w in words:
-        
-        #replace two or more with two occurrences
-        w = replaceTwoOrMore(w)
-
-        #check if the word stats with an alphabet
-        val = re.search(r"^[a-zA-Z][a-zA-Z0-9]*", w)
-
-        #ignore if it is a stop word
-        if(w in stopWords or val is None):
-            continue
+    def get_category(self, attribute):
+        if attribute == "Positive":
+            return ["1", "0", "0"]
+        elif attribute == "Negative":
+            return ["0", "1", "0"]
+        elif attribute == "Neutral":
+            return ["0", "0", "1"]
         else:
-            tmp.append(w)
-        
-    return tmp
+            # raise ValueError('Attribute is wrong')
+            print attribute
+            raise ValueError('Attribute is wrong')
 
-def stripPun(words):
-    tmp = []
-    for w in words:
 
-        # strip symbols in a word
-        w = w.strip('\'"?,./')
-        tmp.append(w)
-        
-    return tmp
+    def data_matrix(self, tweet, word_list):
+        data = [0 for i in range(len(word_list))]
 
-#start getfeatureVector
-def getFeatureVectorAndWordlist(tweet,wordList):
-    featureVector = []
+        # calculate how many times a word repeats
+        for w in tweet:
+            data[word_list.index(w)] += 1
 
-    #split tweet into words
-    words = (tweet.lower()).split()
-    # print words
+        return data
 
-    # preprocess
-    words = preProcess(words)
-    # print words
 
-    # stem the word w
-    words = [stemWordNet(w) for w in words]
-    # print words
+    def build_feature_matrix(self, file_name):
+        # with open('dataset/test.csv', 'rb') as f:
+        with open(file_name, 'rb') as f:
+            p = Preprocess()
 
-    # negation the tweet
-    words = negation(" ".join(words))
+            # "results" contains preprocessed tweet
+            # word list contains all distinct words in training data
+            results = []; word_list = []
 
-    # strip punctuations
-    words = stripPun(words)
-    # print words
+            # dataM contains every tweet's feature vector
+            # cataM contains every tweet's catagory vector
+            dataM = []; cataM = []
 
-    for w in words:
-        featureVector.append(w)
-        if w not in wordList:
-            wordList.append(w) 
+            # read training data
+            reader = csv.reader(f)
+            first = True
+            
+            # read stop words from file
+            stop_words = p.get_stop_word_list('stopWords.txt')
 
-    return featureVector, wordList
-#end
+            for row in reader:
+                if first:
+                    first = False
+                    continue
 
-def getCategory(attribute):
-    if attribute == "Positive":
-        return ["1","0","0"]
-    elif attribute == "Negative":
-        return ["0","1","0"]
-    elif attribute == "Neutral":
-        return ["0","0","1"]
-    else:
-        # raise ValueError('Attribute is wrong')
-        print attribute
-        raise ValueError('Attribute is wrong')
+                # the 16th column is about tweet
+                processed_tweet = p.basic_process(row[15])
 
-def dataMatrix(tweet, wordList):
-    data = [0 for i in range(len(wordList))]
-    # words = tweet.split()
-    for w in tweet:
-        data[wordList.index(w)] += 1
+                # feature_vector = getFeatureVector(processed_tweet)
+                feature_vector, word_list = p.get_fea_vector_and_wordlist(processed_tweet, word_list, stop_words)
 
-    # print data
-    return data
+                # record feature vector for each tweet
+                results.append(feature_vector)
 
-results = []
-wordList = []
-dataM = []
-cataM = []
+                # record category for each vector
+                cataM.append(self.get_category(row[5]))
 
-with open('dataset/test.csv', 'rb') as f:
-    reader = csv.reader(f)
-    first = True
-    st = open('stopWords.txt', 'r')
-    stopWords = getStopWordList('stopWords.txt')
-    for row in reader:
-        if first:
-            first = False
-            continue
+            word_list = sorted(word_list)
 
-        # the 16th column is about tweet
-        processedTweet = processTweet(row[15])
-        # featureVector = getFeatureVector(processedTweet)
-        featureVector, wordList = getFeatureVectorAndWordlist(processedTweet, wordList)
+            for i in range(len(results)):
+                # combine feature vector and category together
+                dataM.append(self.data_matrix(results[i], word_list) + cataM[i])
 
-        # reccord feature vector for each tweet
-        results.append(featureVector)
+        f.close()
 
-        # recoord category for each vector
-        cataM.append(getCategory(row[5]))
+        # write feature matrix to the file
+        with open('featureMatrix.csv', 'wb') as fp:
+            writer = csv.writer(fp)
+            # write world list into '.csv' file
+            writer.writerow(word_list)
 
-    wordList = sorted(wordList)
+            # write feature number matrix into '.csv' file
+            for row in dataM:
+                writer.writerow(row)
 
-    for i in range(len(results)):
-        # combine feature vector and category together
-        dataM.append(dataMatrix(results[i], wordList) + cataM[i])
-
-f.close()
-
-# write feature matrix to the file
-with open('featureMatrix.csv', 'wb') as fp:
-    writer = csv.writer(fp)
-    writer.writerow(sorted(wordList))
-    for row in dataM:
-        writer.writerow(row)
-
-fp.close()
+        fp.close()
